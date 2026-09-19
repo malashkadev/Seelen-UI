@@ -189,9 +189,13 @@ async function updateWidgetPosition() {
     await invoke(SeelenCommand.RegisterAppBar, {
       rect: hitboxRect,
       edge: position as any,
+    }).catch((err) => {
+      console.warn("Failed to register app bar:", err);
     });
   } else {
-    await invoke(SeelenCommand.UnregisterAppBar);
+    await invoke(SeelenCommand.UnregisterAppBar).catch((err) => {
+      console.warn("Failed to unregister app bar:", err);
+    });
   }
 }
 

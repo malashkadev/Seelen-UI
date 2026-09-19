@@ -28,9 +28,7 @@ pub fn get_taskbars_handles() -> Result<Vec<HWND>> {
     let mut founds = Vec::new();
     WindowEnumerator::new().for_each(|hwnd| {
         let class = WindowsApi::get_class(hwnd);
-        if (class == "Shell_TrayWnd" || class == "Shell_SecondaryTrayWnd")
-            && WindowsApi::get_title(hwnd).is_empty()
-        {
+        if class == "Shell_TrayWnd" || class == "Shell_SecondaryTrayWnd" {
             founds.push(hwnd);
         }
     })?;
@@ -41,6 +39,10 @@ pub fn hide_native_taskbar() {
     NATIVE_TASKBAR_HIDDEN.store(true, Ordering::Release);
     std::thread::spawn(|| match get_taskbars_handles() {
         Ok(handles) => {
+            log::info!(
+                "hide_native_taskbar: found {} taskbar handle(s)",
+                handles.len()
+            );
             let mut attempts = 0;
             while attempts < 10 && NATIVE_TASKBAR_HIDDEN.load(Ordering::Acquire) {
                 for hwnd in &handles {

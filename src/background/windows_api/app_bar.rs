@@ -79,7 +79,7 @@ impl AppBarData {
         if !guard.contains(&addr) {
             let ok = unsafe { SHAppBarMessage(ABM_NEW, &mut data) };
             if ok == 0 {
-                return Err("Failed to register App Bar".into());
+                log::warn!("SHAppBarMessage(ABM_NEW) returned 0 for HWND {addr:#X}");
             }
             guard.push(addr);
         }

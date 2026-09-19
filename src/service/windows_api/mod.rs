@@ -156,6 +156,7 @@ impl WindowsApi {
         String::from_utf16_lossy(&text[..length])
     }
 
+    #[allow(dead_code)]
     pub fn get_title(hwnd: HWND) -> String {
         let mut text: [u16; 512] = [0; 512];
         let len = unsafe { GetWindowTextW(hwnd, &mut text) };

@@ -186,7 +186,7 @@ impl LanguageManager {
         unsafe {
             let ime_hwnd = ImmGetDefaultIMEWnd(WindowsApi::get_foreground_window());
             if ime_hwnd.is_invalid() {
-                return Err("failed to get default IME window".into());
+                return Ok(ImeState::default());
             }
 
             let open =

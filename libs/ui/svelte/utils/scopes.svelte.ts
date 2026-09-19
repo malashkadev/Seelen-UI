@@ -36,12 +36,16 @@ class LazyScope<C extends SeelenCommand> {
       this._ready = true;
     });
 
-    invoke(this.command as any).then((data) => {
-      if (!this._ready) {
-        this._data = data as AllSeelenCommandReturns[C];
-        this._ready = true;
-      }
-    });
+    invoke(this.command as any)
+      .then((data) => {
+        if (!this._ready) {
+          this._data = data as AllSeelenCommandReturns[C];
+          this._ready = true;
+        }
+      })
+      .catch((err) => {
+        console.warn(`Failed to fetch initial state for ${this.command}:`, err);
+      });
   }
 }
 

@@ -86,7 +86,10 @@ impl SeelenUI {
         rust_i18n::set_locale(state.locale());
 
         if state.is_weg_enabled() {
+            log::info!("SeelenWeg is enabled, requesting native taskbar hide");
             SeelenWeg::hide_native_taskbar();
+        } else {
+            log::info!("SeelenWeg is disabled");
         }
 
         WIDGET_MANAGER.reconcile()?;
