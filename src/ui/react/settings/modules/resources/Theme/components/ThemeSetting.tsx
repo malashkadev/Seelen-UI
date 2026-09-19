@@ -1,7 +1,7 @@
 import type { ThemeId, ThemeVariableDefinition } from "@seelen-ui/lib/types";
 import { Icon } from "libs/ui/react/components/Icon/index.tsx";
 import { ResourceText } from "libs/ui/react/components/ResourceText/index.tsx";
-import { Button, ColorPicker, Input, InputNumber, Select, Slider, Space, Tooltip } from "antd";
+import { Button, ColorPicker, Input, InputNumber, Select, Slider, Space, Switch, Tooltip } from "antd";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { ReactNode } from "react";
@@ -17,27 +17,104 @@ export interface ThemeSettingProps {
   definition: ThemeVariableDefinition;
 }
 
+interface BooleanPair {
+  trueVal: string;
+  falseVal: string;
+}
+
+function detectBooleanOptions(options: unknown[]): BooleanPair | null {
+  if (!options || options.length !== 2) {
+    return null;
+  }
+  const first = options[0];
+  const second = options[1];
+  if (first == null || second == null) {
+    return null;
+  }
+  const optA = String(first);
+  const optB = String(second);
+  const truthySet = new Set(["1", "1.0", "true", "on", "yes", "enabled", "enable"]);
+  const falsySet = new Set(["0", "0.0", "false", "off", "no", "disabled", "disable"]);
+
+  const aIsTruthy = truthySet.has(optA.toLowerCase());
+  const bIsFalsy = falsySet.has(optB.toLowerCase());
+  if (aIsTruthy && bIsFalsy) {
+    return { trueVal: optA, falseVal: optB };
+  }
+
+  const bIsTruthy = truthySet.has(optB.toLowerCase());
+  const aIsFalsy = falsySet.has(optA.toLowerCase());
+  if (bIsTruthy && aIsFalsy) {
+    return { trueVal: optB, falseVal: optA };
+  }
+
+  return null;
+}
+
+function isTruthyMatch(val: string | number | boolean | undefined, trueVal: string): boolean {
+  if (val == null) return false;
+  const s = String(val).trim().toLowerCase();
+  const t = trueVal.trim().toLowerCase();
+  if (s === t) return true;
+  const numVal = Number(s);
+  const numTrue = Number(t);
+  if (!isNaN(numVal) && !isNaN(numTrue)) {
+    return numVal === numTrue;
+  }
+  return false;
+}
+
+function isSwitchSetting(definition: ThemeVariableDefinition): boolean {
+  if (definition.options && detectBooleanOptions(definition.options)) {
+    return true;
+  }
+  if (definition.syntax === "<boolean>") {
+    return true;
+  }
+  if (
+    definition.syntax === "<number>" &&
+    definition.min === 0 &&
+    definition.max === 1 &&
+    (definition.step == null || definition.step === 1)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function ThemeSetting({ themeId, definition }: ThemeSettingProps) {
   const { value: userStoredValue, onChange, onReset } = useThemeVariable(themeId, definition.name);
   const { t } = useTranslation();
 
   const input = renderInput(definition, userStoredValue, onChange, onReset);
+  const isSwitch = isSwitchSetting(definition);
 
   return (
     <SettingsOption
       label={<ResourceText text={definition.label} />}
       tip={definition.tip ? <ResourceText text={definition.tip} /> : undefined}
       description={definition.description ? <ResourceText text={definition.description} /> : undefined}
-      action={
-        <Space.Compact>
-          {input}
-          <Tooltip title={t("reset_to_default")}>
-            <Button onClick={onReset}>
-              <Icon iconName="BiReset" />
-            </Button>
-          </Tooltip>
-        </Space.Compact>
-      }
+      action={isSwitch
+        ? (
+          <Space align="center" size={12}>
+            {input}
+            <Tooltip title={t("reset_to_default")}>
+              <Button onClick={onReset}>
+                <Icon iconName="BiReset" />
+              </Button>
+            </Tooltip>
+          </Space>
+        )
+        : (
+          <Space.Compact>
+            {input}
+            <Tooltip title={t("reset_to_default")}>
+              <Button onClick={onReset}>
+                <Icon iconName="BiReset" />
+              </Button>
+            </Tooltip>
+          </Space.Compact>
+        )}
     />
   );
 }
@@ -49,6 +126,17 @@ function renderInput(
   onReset: () => void,
 ): ReactNode {
   if (definition.options) {
+    const boolPair = detectBooleanOptions(definition.options);
+    if (boolPair) {
+      const isChecked = isTruthyMatch(userStoredValue ?? String(definition.initialValue), boolPair.trueVal);
+      return (
+        <Switch
+          checked={isChecked}
+          onChange={(checked) => onChange(checked ? boolPair.trueVal : boolPair.falseVal)}
+        />
+      );
+    }
+
     return (
       <Select
         options={definition.options.map((value) => ({ value: String(value) }))}
@@ -59,9 +147,19 @@ function renderInput(
     );
   }
 
-  const { min, max, step } = definition;
-
   switch (definition.syntax) {
+    case "<boolean>": {
+      const isChecked = userStoredValue != null
+        ? isTruthyMatch(userStoredValue, "1") || isTruthyMatch(userStoredValue, "true")
+        : Boolean(definition.initialValue);
+      return (
+        <Switch
+          checked={isChecked}
+          onChange={(checked) => onChange(checked ? "1" : "0")}
+        />
+      );
+    }
+
     case "<color>": {
       const value = userStoredValue || definition.initialValue;
       return (
@@ -74,6 +172,7 @@ function renderInput(
     }
 
     case "<length-percentage>": {
+      const { min, max, step } = definition;
       const numericValue = userStoredValue ? parseFloat(userStoredValue) : definition.initialValue;
       const unit = userStoredValue?.replace(/[\d.]+/, "") || definition.initialValueUnit;
 
@@ -103,6 +202,18 @@ function renderInput(
     }
 
     case "<number>": {
+      const { min, max, step } = definition;
+
+      if (min === 0 && max === 1 && (step == null || step === 1)) {
+        const isChecked = isTruthyMatch(userStoredValue ?? String(definition.initialValue), "1");
+        return (
+          <Switch
+            checked={isChecked}
+            onChange={(checked) => onChange(checked ? "1" : "0")}
+          />
+        );
+      }
+
       const value = userStoredValue ? parseFloat(userStoredValue) : definition.initialValue;
 
       const handleChange = (newValue: number | null) => {
@@ -166,6 +277,7 @@ function renderInput(
     }
 
     case "<string>": {
+      const { min, max } = definition;
       const value = userStoredValue ?? definition.initialValue;
       return (
         <Input
@@ -183,8 +295,6 @@ function renderInput(
     }
 
     default: {
-      // @ts-expect-error should never happen
-      definition.syntax;
       return null;
     }
   }
