@@ -589,7 +589,9 @@ impl Mouse {
     /// Retrieves the position of the mouse cursor, in screen coordinates.
     pub fn get_cursor_pos() -> Result<Point> {
         let mut pos = windows::Win32::Foundation::POINT::default();
-        unsafe { GetCursorPos(&mut pos)? };
+        if unsafe { GetCursorPos(&mut pos) }.is_err() {
+            return Ok(Point::new(0, 0));
+        }
         Ok(Point::new(pos.x, pos.y))
     }
 

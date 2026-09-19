@@ -14,7 +14,7 @@ fn main() {
     let sums_path = target_dir.join("SHA256SUMS");
     checksums.write(&sums_path).unwrap();
 
-    if !cfg!(debug_assertions) {
+    if !cfg!(debug_assertions) && std::env::var("TAURI_SIGNING_PRIVATE_KEY").is_ok() {
         sign_sha256sums(&sums_path);
     } else {
         std::fs::write(
